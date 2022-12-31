@@ -1,5 +1,5 @@
 [package]
-name = "rui_c_compiler_rust"
+name = "rust_9cc"
 version = "0.1.0"
 edition = "2021"
 
@@ -7,6 +7,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.68"
+assert_cmd = "2.0.7"
 strum_macros = "0.24.1"
 thiserror = "1.0.38"
 
