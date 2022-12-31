@@ -78,6 +78,13 @@ fn tokenize(c: Chars) -> TokenizeResult<Vec<Token>> {
     Ok(tokens)
 }
 
+fn expect_number(tk: &Token) -> i64 {
+    match tk.kind {
+        TokenKind::Num => tk.val,
+        _ => panic!("数ではありません"),
+    }
+}
+
 fn main() {
     let args: Vec<String> = env::args().collect();
     if args.len() != 2 {
@@ -87,5 +94,40 @@ fn main() {
 
     let tokens = tokenize(args[1].chars()).unwrap();
 
-    println!("{:?}", tokens);
+    println!(".intel_syntax noprefix");
+    println!(".globl main");
+    println!("main:");
+
+    let mut do_skip = false;
+
+    for (i, token) in tokens.iter().enumerate() {
+        if i == 0 {
+            println!("  mov rax, {}", expect_number(token));
+            continue;
+        } else {
+            if do_skip {
+                do_skip = false;
+                continue;
+            }
+            match token.kind {
+                TokenKind::Reserved => {
+                    if i == tokens.len() - 1 {
+                        panic!("予期しないトークン: {}", token.char);
+                    }
+                    if token.char == '+' {
+                        do_skip = true;
+                        println!("  add rax, {}", expect_number(&tokens[i + 1]));
+                        continue;
+                    } else {
+                        do_skip = true;
+                        println!("  sub rax, {}", expect_number(&tokens[i + 1]));
+                        continue;
+                    }
+                }
+                _ => panic!("予期しないトークン: {}", token.char),
+            }
+        }
+    }
+
+    println!("  ret");
 }
