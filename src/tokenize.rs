@@ -74,3 +74,41 @@ pub fn tokenize(c: Chars) -> TokenizeResult<Vec<Token>> {
 
     Ok(tokens)
 }
+
+#[cfg(test)]
+mod tests {
+    use super::tokenize;
+
+    #[test]
+    fn without_spaces() {
+        let result = tokenize("1+2-300".chars()).unwrap();
+        assert_eq!(result.len(), 5);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].char, '+');
+        assert_eq!(result[2].val, 2);
+        assert_eq!(result[3].char, '-');
+        assert_eq!(result[4].val, 300);
+    }
+
+    #[test]
+    fn with_spaces() {
+        let result = tokenize("1 + 2 - 300".chars()).unwrap();
+        assert_eq!(result.len(), 5);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].char, '+');
+        assert_eq!(result[2].val, 2);
+        assert_eq!(result[3].char, '-');
+        assert_eq!(result[4].val, 300);
+    }
+
+    #[test]
+    fn with_many_spaces() {
+        let reuslt = tokenize(" 1   + 2 -300    ".chars()).unwrap();
+        assert_eq!(reuslt.len(), 5);
+        assert_eq!(reuslt[0].val, 1);
+        assert_eq!(reuslt[1].char, '+');
+        assert_eq!(reuslt[2].val, 2);
+        assert_eq!(reuslt[3].char, '-');
+        assert_eq!(reuslt[4].val, 300);
+    }
+}

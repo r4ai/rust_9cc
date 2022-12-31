@@ -1,4 +1,4 @@
-#[derive(Debug, thiserror::Error)]
+#[derive(Debug, thiserror::Error, PartialEq)]
 pub enum TokenizeError {
     #[error("invalid character: {0}")]
     InvalidOperator(char),
