@@ -44,10 +44,6 @@ pub struct Tokens {
 }
 
 impl Tokens {
-    pub fn new(user_input: String, tokens: VecDeque<Token>) -> Self {
-        Self { user_input, tokens }
-    }
-
     pub fn init(user_input: String, capasity: usize) -> Self {
         Self {
             user_input,
@@ -69,14 +65,6 @@ impl Tokens {
 
     pub fn pop_back(&mut self) -> Option<Token> {
         self.tokens.pop_back()
-    }
-
-    pub fn front(&self) -> Option<&Token> {
-        self.tokens.front()
-    }
-
-    pub fn back(&self) -> Option<&Token> {
-        self.tokens.back()
     }
 
     pub fn consume_op(&mut self, op: char) -> bool {

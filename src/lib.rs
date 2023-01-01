@@ -63,10 +63,15 @@ impl Node {
             _ => Err(result::TokenizeError::InvalidOperator(op)),
         }
     }
-}
 
-fn base(tokens: &mut VecDeque<Token>) -> Node {
-    todo!()
+    pub fn new_num(val: i64) -> Self {
+        Self {
+            kind: NodeKind::Num,
+            val,
+            lhs: None,
+            rhs: None,
+        }
+    }
 }
 
 fn expr(tokens: &mut Tokens) -> Node {
@@ -133,12 +138,7 @@ fn primary(tokens: &mut Tokens) -> Node {
         };
         return node;
     } else {
-        let node = Node {
-            kind: NodeKind::Num,
-            val: expect_number(&tokens.pop_front()),
-            lhs: None,
-            rhs: None,
-        };
+        let node = Node::new_num(expect_number(&tokens.pop_front()));
         return node;
     }
 }
