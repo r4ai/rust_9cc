@@ -3,7 +3,8 @@ mod tokenize;
 
 use std::collections::VecDeque;
 
-use tokenize::{tokenize, Token, TokenKind};
+use result::TokenizeResult;
+use tokenize::{tokenize, Token, TokenKind, Tokens};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum NodeKind {
@@ -32,122 +33,104 @@ impl Node {
             rhs: None,
         }
     }
+
+    pub fn new_op(op: char) -> TokenizeResult<Self> {
+        match op {
+            '+' => Ok(Self {
+                kind: NodeKind::Add,
+                val: 0,
+                lhs: None,
+                rhs: None,
+            }),
+            '-' => Ok(Self {
+                kind: NodeKind::Sub,
+                val: 0,
+                lhs: None,
+                rhs: None,
+            }),
+            '*' => Ok(Self {
+                kind: NodeKind::Mul,
+                val: 0,
+                lhs: None,
+                rhs: None,
+            }),
+            '/' => Ok(Self {
+                kind: NodeKind::Div,
+                val: 0,
+                lhs: None,
+                rhs: None,
+            }),
+            _ => Err(result::TokenizeError::InvalidOperator(op)),
+        }
+    }
 }
 
 fn base(tokens: &mut VecDeque<Token>) -> Node {
     todo!()
 }
 
-fn expr(tokens: &mut VecDeque<Token>) -> Node {
-    let mut first_tk = VecDeque::from([tokens.pop_front().unwrap()]);
+fn expr(tokens: &mut Tokens) -> Node {
     let mut node_center = Node::init();
     let mut node_right = Node::init();
-    let node_left = mul(&mut first_tk);
-    while tokens.len() > 0 {
-        match tokens.pop_front() {
-            Some(tk) => {
-                if tk.kind == TokenKind::Reserved {
-                    match tk.char {
-                        '+' => {
-                            node_center = Node {
-                                kind: NodeKind::Add,
-                                val: 0,
-                                lhs: None,
-                                rhs: None,
-                            };
-                            node_right = mul(tokens);
-                        }
-                        '-' => {
-                            node_center = Node {
-                                kind: NodeKind::Sub,
-                                val: 0,
-                                lhs: None,
-                                rhs: None,
-                            };
-                            node_right = mul(tokens);
-                        }
-                        _ => {
-                            panic!("定義されていない演算子です: {}", &tk.char);
-                        }
-                    }
-                } else {
-                    panic!("演算子が来るはずです: {}", &tk.char);
-                }
-            }
-            None => {
-                panic!("存在しないトークンへのアクセスが発生しました");
-            }
-        };
+    let node_left = mul(tokens);
+    while tokens.tokens.len() > 0 {
+        if tokens.consume_op('+') {
+            node_center = Node::new_op('+').unwrap();
+            node_right = mul(tokens);
+        } else if tokens.consume_op('-') {
+            node_center = Node::new_op('-').unwrap();
+            node_right = mul(tokens);
+        } else {
+            break;
+        }
     }
+
     if node_center.kind == NodeKind::Nil {
-        return node_left;
+        node_left
+    } else {
+        node_center.lhs = Some(Box::new(node_left));
+        node_center.rhs = match node_right.kind {
+            NodeKind::Nil => None,
+            _ => Some(Box::new(node_right)),
+        };
+        node_center
     }
-    node_center.lhs = Some(Box::new(node_left));
-    node_center.rhs = match node_right.kind {
-        NodeKind::Nil => None,
-        _ => Some(Box::new(node_right)),
-    };
-    node_center
 }
 
-fn mul(tokens: &mut VecDeque<Token>) -> Node {
-    let mut first_tk = VecDeque::from([tokens.pop_front().unwrap()]);
+fn mul(tokens: &mut Tokens) -> Node {
     let mut node_center = Node::init();
     let mut node_right = Node::init();
-    let node_left = primary(&mut first_tk);
-    while tokens.len() > 0 {
-        match tokens.pop_front() {
-            Some(tk) => {
-                if tk.kind == TokenKind::Reserved {
-                    match tk.char {
-                        '*' => {
-                            node_center = Node {
-                                kind: NodeKind::Mul,
-                                val: 0,
-                                lhs: None,
-                                rhs: None,
-                            };
-                            node_right = primary(tokens);
-                        }
-                        '/' => {
-                            node_center = Node {
-                                kind: NodeKind::Div,
-                                val: 0,
-                                lhs: None,
-                                rhs: None,
-                            };
-                            node_right = primary(tokens);
-                        }
-                        _ => {
-                            panic!("定義されていない演算子です: {}", &tk.char);
-                        }
-                    }
-                } else {
-                    panic!("演算子が来るはずです: {}", &tk.char);
-                }
-            }
-            None => {
-                panic!("存在しないトークンへのアクセスが発生しました");
-            }
-        };
+    let node_left = primary(tokens);
+    while tokens.tokens.len() > 0 {
+        if tokens.consume_op('*') {
+            node_center = Node::new_op('*').unwrap();
+            node_right = primary(tokens);
+        } else if tokens.consume_op('/') {
+            node_center = Node::new_op('/').unwrap();
+            node_right = primary(tokens);
+        } else {
+            break;
+        }
     }
+
     if node_center.kind == NodeKind::Nil {
-        return node_left;
+        node_left
+    } else {
+        node_center.lhs = Some(Box::new(node_left));
+        node_center.rhs = match node_right.kind {
+            NodeKind::Nil => None,
+            _ => Some(Box::new(node_right)),
+        };
+        node_center
     }
-    node_center.lhs = Some(Box::new(node_left));
-    node_center.rhs = match node_right.kind {
-        NodeKind::Nil => None,
-        _ => Some(Box::new(node_right)),
-    };
-    node_center
 }
 
-fn primary(tokens: &mut VecDeque<Token>) -> Node {
-    let first_tk = tokens.front().unwrap();
-    if first_tk.kind == TokenKind::Reserved && first_tk.char == '(' {
-        consume(tokens, '(');
+fn primary(tokens: &mut Tokens) -> Node {
+    if tokens.consume_op('(') {
         let node = expr(tokens);
-        consume(tokens, ')');
+        if !tokens.consume_op(')') {
+            panic!("')' is not found");
+        };
         return node;
     } else {
         let node = Node {
@@ -157,15 +140,6 @@ fn primary(tokens: &mut VecDeque<Token>) -> Node {
             rhs: None,
         };
         return node;
-    }
-}
-
-fn consume(tokens: &mut VecDeque<Token>, expect_char: char) -> Option<Token> {
-    let first_tk = tokens.front().unwrap();
-    if first_tk.kind == TokenKind::Reserved && first_tk.char == expect_char {
-        return tokens.pop_front();
-    } else {
-        return None;
     }
 }
 
@@ -185,7 +159,7 @@ pub fn cli(args: Vec<String>) -> String {
         std::process::exit(1);
     }
 
-    let mut tokens = tokenize(args[1].to_string()).unwrap().tokens;
+    let mut tokens = tokenize(args[1].to_string()).unwrap();
     let mut result = String::new();
 
     result.push_str(".intel_syntax noprefix\n");
@@ -206,7 +180,7 @@ mod tests {
     #[test]
     fn check_ast_with_add() {
         let mut tokens = tokenize("1 + 2".to_string()).unwrap();
-        let node = expr(&mut tokens.tokens);
+        let node = expr(&mut tokens);
         assert_eq!(
             node,
             Node {
@@ -231,7 +205,7 @@ mod tests {
     #[test]
     fn check_ast_with_sub() {
         let mut tokens = tokenize("1 - 2".to_string()).unwrap();
-        let node = expr(&mut tokens.tokens);
+        let node = expr(&mut tokens);
         assert_eq!(
             node,
             Node {
@@ -255,7 +229,7 @@ mod tests {
 
     #[test]
     fn check_ast_with_add_and_sub() {
-        let mut tokens = tokenize("1 + 2 - 3".to_string()).unwrap().tokens;
+        let mut tokens = tokenize("1 + 2 - 3".to_string()).unwrap();
         let node = expr(&mut tokens);
         assert_eq!(
             node,
@@ -291,7 +265,7 @@ mod tests {
     #[test]
     fn check_ast_with_multipy() {
         let mut tokens = tokenize("1 + 2 * 3".to_string()).unwrap();
-        let node = expr(&mut tokens.tokens);
+        let node = expr(&mut tokens);
         assert_eq!(
             node,
             Node {
@@ -328,7 +302,7 @@ mod tests {
     #[test]
     fn check_ast_with_division() {
         let mut tokens = tokenize("4 / 2 - 2".to_string()).unwrap();
-        let node = expr(&mut tokens.tokens);
+        let node = expr(&mut tokens);
         assert_eq!(
             node,
             Node {
@@ -365,7 +339,7 @@ mod tests {
     #[test]
     fn check_ast_with_parenthesis() {
         let mut tokens = tokenize("1 * 2+(3+4)".to_string()).unwrap();
-        let node = expr(&mut tokens.tokens);
+        let node = expr(&mut tokens);
         assert_eq!(
             node,
             Node {

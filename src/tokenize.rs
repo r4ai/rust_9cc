@@ -71,7 +71,15 @@ impl Tokens {
         self.tokens.pop_back()
     }
 
-    pub fn consume(&mut self, op: char) -> bool {
+    pub fn front(&self) -> Option<&Token> {
+        self.tokens.front()
+    }
+
+    pub fn back(&self) -> Option<&Token> {
+        self.tokens.back()
+    }
+
+    pub fn consume_op(&mut self, op: char) -> bool {
         let token = match self.tokens.front() {
             Some(v) => v,
             None => return false,
@@ -80,7 +88,7 @@ impl Tokens {
             self.tokens.pop_front();
             return true;
         }
-        true
+        false
     }
 }
 

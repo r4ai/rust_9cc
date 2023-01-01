@@ -1,4 +1,4 @@
-use rust_9cc::cli;
+use rust_9cc::{cli, Node};
 use std::env;
 
 fn main() {
