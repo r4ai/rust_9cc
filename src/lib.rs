@@ -25,45 +25,6 @@ pub struct Node {
 }
 
 impl Node {
-    pub fn init() -> Self {
-        Self {
-            kind: NodeKind::Nil,
-            val: 0,
-            lhs: None,
-            rhs: None,
-        }
-    }
-
-    pub fn new_op(op: char) -> TokenizeResult<Self> {
-        match op {
-            '+' => Ok(Self {
-                kind: NodeKind::Add,
-                val: 0,
-                lhs: None,
-                rhs: None,
-            }),
-            '-' => Ok(Self {
-                kind: NodeKind::Sub,
-                val: 0,
-                lhs: None,
-                rhs: None,
-            }),
-            '*' => Ok(Self {
-                kind: NodeKind::Mul,
-                val: 0,
-                lhs: None,
-                rhs: None,
-            }),
-            '/' => Ok(Self {
-                kind: NodeKind::Div,
-                val: 0,
-                lhs: None,
-                rhs: None,
-            }),
-            _ => Err(result::TokenizeError::InvalidOperator(op)),
-        }
-    }
-
     pub fn new_num(val: i64) -> Self {
         Self {
             kind: NodeKind::Num,
@@ -72,61 +33,40 @@ impl Node {
             rhs: None,
         }
     }
+
+    pub fn new(kind: NodeKind, lhs: Node, rhs: Node) -> Self {
+        Self {
+            kind,
+            val: 0,
+            lhs: Some(Box::new(lhs)),
+            rhs: Some(Box::new(rhs)),
+        }
+    }
 }
 
 fn expr(tokens: &mut Tokens) -> Node {
-    let mut node_center = Node::init();
-    let mut node_right = Node::init();
-    let node_left = mul(tokens);
-    while tokens.tokens.len() > 0 {
+    let mut node = mul(tokens);
+    loop {
         if tokens.consume_op('+') {
-            node_center = Node::new_op('+').unwrap();
-            node_right = mul(tokens);
+            node = Node::new(NodeKind::Add, node, mul(tokens));
         } else if tokens.consume_op('-') {
-            node_center = Node::new_op('-').unwrap();
-            node_right = mul(tokens);
+            node = Node::new(NodeKind::Sub, node, mul(tokens));
         } else {
-            break;
+            return node;
         }
-    }
-
-    if node_center.kind == NodeKind::Nil {
-        node_left
-    } else {
-        node_center.lhs = Some(Box::new(node_left));
-        node_center.rhs = match node_right.kind {
-            NodeKind::Nil => None,
-            _ => Some(Box::new(node_right)),
-        };
-        node_center
     }
 }
 
 fn mul(tokens: &mut Tokens) -> Node {
-    let mut node_center = Node::init();
-    let mut node_right = Node::init();
-    let node_left = primary(tokens);
-    while tokens.tokens.len() > 0 {
+    let mut node = primary(tokens);
+    loop {
         if tokens.consume_op('*') {
-            node_center = Node::new_op('*').unwrap();
-            node_right = primary(tokens);
+            node = Node::new(NodeKind::Mul, node, primary(tokens));
         } else if tokens.consume_op('/') {
-            node_center = Node::new_op('/').unwrap();
-            node_right = primary(tokens);
+            node = Node::new(NodeKind::Div, node, primary(tokens));
         } else {
-            break;
+            return node;
         }
-    }
-
-    if node_center.kind == NodeKind::Nil {
-        node_left
-    } else {
-        node_center.lhs = Some(Box::new(node_left));
-        node_center.rhs = match node_right.kind {
-            NodeKind::Nil => None,
-            _ => Some(Box::new(node_right)),
-        };
-        node_center
     }
 }
 
@@ -153,6 +93,50 @@ fn expect_number(tk: &Option<Token>) -> i64 {
     }
 }
 
+fn gen(node: &Node) -> String {
+    let mut result = String::new();
+    if node.kind == NodeKind::Num {
+        result.push_str(&format!("  push {}\n", node.val));
+        return result;
+    }
+
+    result.push_str(
+        gen(match &node.lhs {
+            Some(v) => v,
+            None => {
+                return result;
+            }
+        })
+        .as_str(),
+    );
+    result.push_str(
+        gen(match &node.rhs {
+            Some(v) => v,
+            None => {
+                return result;
+            }
+        })
+        .as_str(),
+    );
+
+    result.push_str("  pop rdi\n");
+    result.push_str("  pop rax\n");
+
+    match node.kind {
+        NodeKind::Add => result.push_str("  add rax, rdi\n"),
+        NodeKind::Sub => result.push_str("  sub rax, rdi\n"),
+        NodeKind::Mul => result.push_str("  imul rax, rdi\n"),
+        NodeKind::Div => {
+            result.push_str("  cqo\n");
+            result.push_str("  idiv rdi\n");
+        }
+        _ => {}
+    };
+
+    result.push_str("  push rax\n");
+    result
+}
+
 pub fn cli(args: Vec<String>) -> String {
     if args.len() != 2 {
         eprintln!("引数の個数が正しくありません");
@@ -167,8 +151,12 @@ pub fn cli(args: Vec<String>) -> String {
     result.push_str("main:\n");
 
     let node = expr(&mut tokens);
-    dbg!(node);
+    dbg!(&node);
 
+    let asm_code = gen(&node);
+    result.push_str(asm_code.as_str());
+
+    result.push_str("  pop rax\n");
     result.push_str("  ret\n");
     return result;
 }
