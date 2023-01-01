@@ -1,4 +1,4 @@
-use std::str::Chars;
+use std::{collections::VecDeque, str::Chars};
 
 use crate::result::{TokenizeError, TokenizeResult};
 
@@ -37,20 +37,20 @@ impl Token {
     }
 }
 
-pub fn tokenize(c: Chars) -> TokenizeResult<Vec<Token>> {
-    fn check_tmp(tmp: &mut String, tokens: &mut Vec<Token>) -> TokenizeResult<()> {
+pub fn tokenize(c: Chars) -> TokenizeResult<VecDeque<Token>> {
+    fn check_tmp(tmp: &mut String, tokens: &mut VecDeque<Token>) -> TokenizeResult<()> {
         if !tmp.is_empty() {
             let token = Token::new_num(match tmp.parse::<i64>() {
                 Ok(val) => val,
                 Err(_) => return Err(TokenizeError::InvalidNumber(tmp.clone())),
             })?;
-            tokens.push(token);
+            tokens.push_back(token);
             tmp.clear();
         }
         Ok(())
     }
 
-    let mut tokens: Vec<Token> = vec![];
+    let mut tokens: VecDeque<Token> = VecDeque::with_capacity(c.clone().count());
     let mut tmp = String::new();
 
     for c_i in c {
@@ -65,7 +65,7 @@ pub fn tokenize(c: Chars) -> TokenizeResult<Vec<Token>> {
         if c_i == '+' || c_i == '-' {
             check_tmp(&mut tmp, &mut tokens)?;
             let token = Token::new_op(c_i)?;
-            tokens.push(token);
+            tokens.push_back(token);
             continue;
         }
         return Err(TokenizeError::InvalidSyntax(c_i.to_string()));
