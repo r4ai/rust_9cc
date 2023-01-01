@@ -2,13 +2,13 @@ use std::{collections::VecDeque, str::Chars};
 
 use crate::result::{TokenizeError, TokenizeResult};
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Reserved,
     Num,
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct Token {
     pub kind: TokenKind,
     pub val: i64,
@@ -17,7 +17,7 @@ pub struct Token {
 
 impl Token {
     pub fn new_op(c: char) -> TokenizeResult<Token> {
-        if c == '+' || c == '-' {
+        if ['+', '-', '*', '/', '(', ')'].contains(&c) {
             Ok(Self {
                 kind: TokenKind::Reserved,
                 val: 0,
@@ -37,8 +37,56 @@ impl Token {
     }
 }
 
-pub fn tokenize(c: Chars) -> TokenizeResult<VecDeque<Token>> {
-    fn check_tmp(tmp: &mut String, tokens: &mut VecDeque<Token>) -> TokenizeResult<()> {
+#[derive(Debug, PartialEq, Eq)]
+pub struct Tokens {
+    pub user_input: String,
+    pub tokens: VecDeque<Token>,
+}
+
+impl Tokens {
+    pub fn new(user_input: String, tokens: VecDeque<Token>) -> Self {
+        Self { user_input, tokens }
+    }
+
+    pub fn init(user_input: String, capasity: usize) -> Self {
+        Self {
+            user_input,
+            tokens: VecDeque::with_capacity(capasity),
+        }
+    }
+
+    pub fn push_front(&mut self, token: Token) {
+        self.tokens.push_front(token);
+    }
+
+    pub fn push_back(&mut self, token: Token) {
+        self.tokens.push_back(token);
+    }
+
+    pub fn pop_front(&mut self) -> Option<Token> {
+        self.tokens.pop_front()
+    }
+
+    pub fn pop_back(&mut self) -> Option<Token> {
+        self.tokens.pop_back()
+    }
+
+    pub fn consume(&mut self, op: char) -> bool {
+        let token = match self.tokens.front() {
+            Some(v) => v,
+            None => return false,
+        };
+        if token.kind == TokenKind::Reserved && token.char == op {
+            self.tokens.pop_front();
+            return true;
+        }
+        true
+    }
+}
+
+pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
+    let c = input.chars();
+    fn check_tmp(tmp: &mut String, tokens: &mut Tokens) -> TokenizeResult<()> {
         if !tmp.is_empty() {
             let token = Token::new_num(match tmp.parse::<i64>() {
                 Ok(val) => val,
@@ -50,7 +98,7 @@ pub fn tokenize(c: Chars) -> TokenizeResult<VecDeque<Token>> {
         Ok(())
     }
 
-    let mut tokens: VecDeque<Token> = VecDeque::with_capacity(c.clone().count());
+    let mut tokens = Tokens::init(input.clone(), c.clone().count());
     let mut tmp = String::new();
 
     for c_i in c {
@@ -62,7 +110,7 @@ pub fn tokenize(c: Chars) -> TokenizeResult<VecDeque<Token>> {
             tmp.push(c_i);
             continue;
         }
-        if c_i == '+' || c_i == '-' {
+        if Token::new_op(c_i).is_ok() {
             check_tmp(&mut tmp, &mut tokens)?;
             let token = Token::new_op(c_i)?;
             tokens.push_back(token);
@@ -81,7 +129,7 @@ mod tests {
 
     #[test]
     fn without_spaces() {
-        let result = tokenize("1+2-300".chars()).unwrap();
+        let result = tokenize("1+2-300".to_string()).unwrap().tokens;
         assert_eq!(result.len(), 5);
         assert_eq!(result[0].val, 1);
         assert_eq!(result[1].char, '+');
@@ -92,7 +140,7 @@ mod tests {
 
     #[test]
     fn with_spaces() {
-        let result = tokenize("1 + 2 - 300".chars()).unwrap();
+        let result = tokenize("1 + 2 - 300".to_string()).unwrap().tokens;
         assert_eq!(result.len(), 5);
         assert_eq!(result[0].val, 1);
         assert_eq!(result[1].char, '+');
@@ -103,12 +151,63 @@ mod tests {
 
     #[test]
     fn with_many_spaces() {
-        let reuslt = tokenize(" 1   + 2 -300    ".chars()).unwrap();
+        let reuslt = tokenize(" 1   + 2 -300    ".to_string()).unwrap().tokens;
         assert_eq!(reuslt.len(), 5);
         assert_eq!(reuslt[0].val, 1);
         assert_eq!(reuslt[1].char, '+');
         assert_eq!(reuslt[2].val, 2);
         assert_eq!(reuslt[3].char, '-');
         assert_eq!(reuslt[4].val, 300);
+    }
+
+    #[test]
+    fn multipy_with_spaces() {
+        let result = tokenize("1 * 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].char, '*');
+        assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn divide_with_spaces() {
+        let result = tokenize("1 / 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].char, '/');
+        assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn parenthesis_with_spaces() {
+        let result = tokenize("(1 + 2) * 3".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 7);
+        assert_eq!(result[0].char, '(');
+        assert_eq!(result[1].val, 1);
+        assert_eq!(result[2].char, '+');
+        assert_eq!(result[3].val, 2);
+        assert_eq!(result[4].char, ')');
+        assert_eq!(result[5].char, '*');
+        assert_eq!(result[6].val, 3);
+    }
+
+    #[test]
+    fn invalid_number() {
+        let result = tokenize("1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 0 + a".to_string());
+        assert!(
+            result.is_err(),
+            "エラーが発生すべきですが、発生しませんでした。\n{:?}",
+            result
+        );
+    }
+
+    #[test]
+    fn invalid_operator() {
+        let result = tokenize("1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 0 % 4".to_string());
+        assert!(
+            result.is_err(),
+            "エラーが発生すべきですが、発生しませんでした。\n{:?}",
+            result
+        );
     }
 }
