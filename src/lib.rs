@@ -47,9 +47,9 @@ impl Node {
 fn expr(tokens: &mut Tokens) -> Node {
     let mut node = mul(tokens);
     loop {
-        if tokens.consume_op('+') {
+        if tokens.consume_op("+") {
             node = Node::new(NodeKind::Add, node, mul(tokens));
-        } else if tokens.consume_op('-') {
+        } else if tokens.consume_op("-") {
             node = Node::new(NodeKind::Sub, node, mul(tokens));
         } else {
             return node;
@@ -60,9 +60,9 @@ fn expr(tokens: &mut Tokens) -> Node {
 fn mul(tokens: &mut Tokens) -> Node {
     let mut node = unary(tokens);
     loop {
-        if tokens.consume_op('*') {
+        if tokens.consume_op("*") {
             node = Node::new(NodeKind::Mul, node, unary(tokens));
-        } else if tokens.consume_op('/') {
+        } else if tokens.consume_op("/") {
             node = Node::new(NodeKind::Div, node, unary(tokens));
         } else {
             return node;
@@ -71,9 +71,9 @@ fn mul(tokens: &mut Tokens) -> Node {
 }
 
 fn unary(tokens: &mut Tokens) -> Node {
-    if tokens.consume_op('+') {
+    if tokens.consume_op("+") {
         primary(tokens)
-    } else if tokens.consume_op('-') {
+    } else if tokens.consume_op("-") {
         Node::new(NodeKind::Sub, Node::new_num(0), primary(tokens))
     } else {
         primary(tokens)
@@ -81,9 +81,9 @@ fn unary(tokens: &mut Tokens) -> Node {
 }
 
 fn primary(tokens: &mut Tokens) -> Node {
-    if tokens.consume_op('(') {
+    if tokens.consume_op("(") {
         let node = expr(tokens);
-        if !tokens.consume_op(')') {
+        if !tokens.consume_op(")") {
             panic!("')' is not found");
         };
         return node;
@@ -97,7 +97,7 @@ fn expect_number(tk: &Option<Token>) -> i64 {
     match tk {
         Some(v) => match v.kind {
             TokenKind::Num => v.val,
-            _ => panic!("数ではありません: {}", v.char),
+            _ => panic!("数ではありません: {}", v.str),
         },
         None => panic!("解析エラー"),
     }

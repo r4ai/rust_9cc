@@ -1,7 +1,8 @@
-use std::{collections::VecDeque, str::Chars};
+use std::collections::VecDeque;
 
 use crate::result::{TokenizeError, TokenizeResult};
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct UserInput {
     chars: VecDeque<char>,
 }
@@ -13,16 +14,83 @@ impl UserInput {
         }
     }
 
-    pub fn parse_num(&mut self) -> usize {
+    pub fn front(&self) -> Option<&char> {
+        self.chars.front()
+    }
+
+    pub fn pop_front(&mut self) -> Option<char> {
+        self.chars.pop_front()
+    }
+
+    fn get(&self, index: usize) -> Option<&char> {
+        self.chars.get(index)
+    }
+
+    pub fn parse_num(&mut self) -> Option<usize> {
+        if !self.front()?.is_ascii_digit() {
+            return None;
+        }
+
         let mut num = 0;
-        while let Some(c) = self.chars.front() {
+        while let Some(c) = self.front() {
             if !c.is_ascii_digit() {
                 break;
             }
             num = num * 10 + (c.to_digit(10).unwrap() as usize);
-            self.chars.pop_front();
+            self.pop_front();
         }
-        num
+        Some(num)
+    }
+
+    pub fn parse_op(&mut self) -> Option<String> {
+        match self.front()? {
+            '=' => match self.get(1)? {
+                '=' => {
+                    self.pop_front()?;
+                    self.pop_front()?;
+                    Some("==".to_string())
+                }
+                _ => {
+                    self.pop_front()?;
+                    Some("=".to_string())
+                }
+            },
+            '!' => match self.get(1)? {
+                '=' => {
+                    self.pop_front()?;
+                    self.pop_front()?;
+                    Some("!=".to_string())
+                }
+                _ => None,
+            },
+            '<' => match self.get(1)? {
+                '=' => {
+                    self.pop_front()?;
+                    self.pop_front()?;
+                    Some("<=".to_string())
+                }
+                _ => {
+                    self.pop_front()?;
+                    Some("<".to_string())
+                }
+            },
+            '>' => match self.get(1)? {
+                '=' => {
+                    self.pop_front()?;
+                    self.pop_front()?;
+                    Some(">=".to_string())
+                }
+                _ => {
+                    self.pop_front()?;
+                    Some(">".to_string())
+                }
+            },
+            '+' | '-' | '*' | '/' | '(' | ')' => {
+                let c = self.pop_front()?;
+                Some(c.to_string())
+            }
+            _ => None,
+        }
     }
 }
 
@@ -36,27 +104,26 @@ pub enum TokenKind {
 pub struct Token {
     pub kind: TokenKind,
     pub val: i64,
-    pub char: char,
+    pub str: String,
+    pub len: usize,
 }
 
 impl Token {
-    pub fn new_op(c: char) -> TokenizeResult<Token> {
-        if ['+', '-', '*', '/', '(', ')'].contains(&c) {
-            Ok(Self {
-                kind: TokenKind::Reserved,
-                val: 0,
-                char: c,
-            })
-        } else {
-            Err(TokenizeError::InvalidOperator(c))
-        }
+    pub fn new_op(c: String) -> TokenizeResult<Token> {
+        Ok(Self {
+            kind: TokenKind::Reserved,
+            val: 0,
+            str: c,
+            len: 1,
+        })
     }
 
     pub fn new_num(val: i64) -> TokenizeResult<Token> {
         Ok(Self {
             kind: TokenKind::Num,
             val,
-            char: ' ',
+            str: " ".to_string(),
+            len: 1,
         })
     }
 }
@@ -75,10 +142,6 @@ impl Tokens {
         }
     }
 
-    pub fn push_front(&mut self, token: Token) {
-        self.tokens.push_front(token)
-    }
-
     pub fn push_back(&mut self, token: Token) {
         self.tokens.push_back(token)
     }
@@ -87,17 +150,17 @@ impl Tokens {
         self.tokens.pop_front()
     }
 
-    pub fn pop_back(&mut self) -> Option<Token> {
-        self.tokens.pop_back()
+    pub fn front(&self) -> Option<&Token> {
+        self.tokens.front()
     }
 
-    pub fn consume_op(&mut self, op: char) -> bool {
-        let token = match self.tokens.front() {
+    pub fn consume_op(&mut self, op: &str) -> bool {
+        let token = match self.front() {
             Some(v) => v,
             None => return false,
         };
-        if token.kind == TokenKind::Reserved && token.char == op {
-            self.tokens.pop_front();
+        if token.kind == TokenKind::Reserved && token.str == op {
+            self.pop_front();
             return true;
         }
         false
@@ -108,20 +171,18 @@ pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
     let mut user_input = UserInput::new(input.clone());
     let mut tokens = Tokens::init(input.clone(), input.capacity());
 
-    while let Some(c) = user_input.chars.front() {
+    while let Some(c) = user_input.front() {
         if c.is_ascii_whitespace() {
-            user_input.chars.pop_front();
+            user_input.pop_front();
             continue;
         }
 
-        if ['+', '-', '*', '/', '(', ')'].contains(c) {
-            tokens.push_back(Token::new_op(*c)?);
-            user_input.chars.pop_front();
+        if let Some(op) = user_input.parse_op() {
+            tokens.push_back(Token::new_op(op)?);
             continue;
         }
 
-        if c.is_ascii_digit() {
-            let num = user_input.parse_num();
+        if let Some(num) = user_input.parse_num() {
             tokens.push_back(Token::new_num(num as i64)?);
             continue;
         }
@@ -141,9 +202,9 @@ mod tests {
         let result = tokenize("1+2-300".to_string()).unwrap().tokens;
         assert_eq!(result.len(), 5);
         assert_eq!(result[0].val, 1);
-        assert_eq!(result[1].char, '+');
+        assert_eq!(result[1].str, "+");
         assert_eq!(result[2].val, 2);
-        assert_eq!(result[3].char, '-');
+        assert_eq!(result[3].str, "-");
         assert_eq!(result[4].val, 300);
     }
 
@@ -152,9 +213,9 @@ mod tests {
         let result = tokenize("1 + 2 - 300".to_string()).unwrap().tokens;
         assert_eq!(result.len(), 5);
         assert_eq!(result[0].val, 1);
-        assert_eq!(result[1].char, '+');
+        assert_eq!(result[1].str, "+");
         assert_eq!(result[2].val, 2);
-        assert_eq!(result[3].char, '-');
+        assert_eq!(result[3].str, "-");
         assert_eq!(result[4].val, 300);
     }
 
@@ -163,9 +224,9 @@ mod tests {
         let reuslt = tokenize(" 1   + 2 -300    ".to_string()).unwrap().tokens;
         assert_eq!(reuslt.len(), 5);
         assert_eq!(reuslt[0].val, 1);
-        assert_eq!(reuslt[1].char, '+');
+        assert_eq!(reuslt[1].str, "+");
         assert_eq!(reuslt[2].val, 2);
-        assert_eq!(reuslt[3].char, '-');
+        assert_eq!(reuslt[3].str, "-");
         assert_eq!(reuslt[4].val, 300);
     }
 
@@ -174,7 +235,7 @@ mod tests {
         let result = tokenize("1 * 2".to_string()).unwrap().tokens;
         assert_eq!(result.len(), 3);
         assert_eq!(result[0].val, 1);
-        assert_eq!(result[1].char, '*');
+        assert_eq!(result[1].str, "*");
         assert_eq!(result[2].val, 2);
     }
 
@@ -183,7 +244,7 @@ mod tests {
         let result = tokenize("1 / 2".to_string()).unwrap().tokens;
         assert_eq!(result.len(), 3);
         assert_eq!(result[0].val, 1);
-        assert_eq!(result[1].char, '/');
+        assert_eq!(result[1].str, "/");
         assert_eq!(result[2].val, 2);
     }
 
@@ -191,9 +252,9 @@ mod tests {
     fn unary_operator_with_spaces() {
         let result = tokenize("-1 + 2".to_string()).unwrap().tokens;
         assert_eq!(result.len(), 4);
-        assert_eq!(result[0].char, '-');
+        assert_eq!(result[0].str, "-");
         assert_eq!(result[1].val, 1);
-        assert_eq!(result[2].char, '+');
+        assert_eq!(result[2].str, "+");
         assert_eq!(result[3].val, 2);
     }
 
@@ -201,13 +262,67 @@ mod tests {
     fn parenthesis_with_spaces() {
         let result = tokenize("(1 + 2) * 3".to_string()).unwrap().tokens;
         assert_eq!(result.len(), 7);
-        assert_eq!(result[0].char, '(');
+        assert_eq!(result[0].str, "(");
         assert_eq!(result[1].val, 1);
-        assert_eq!(result[2].char, '+');
+        assert_eq!(result[2].str, "+");
         assert_eq!(result[3].val, 2);
-        assert_eq!(result[4].char, ')');
-        assert_eq!(result[5].char, '*');
+        assert_eq!(result[4].str, ")");
+        assert_eq!(result[5].str, "*");
         assert_eq!(result[6].val, 3);
+    }
+
+    #[test]
+    fn leq_operator_with_spaces() {
+        let result = tokenize("1 <= 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].str, "<=");
+        assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn lt_operator_with_spaces() {
+        let result = tokenize("1 < 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].str, "<");
+        assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn geq_operator_with_spaces() {
+        let result = tokenize("1 >= 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].str, ">=");
+        assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn gt_operator_with_spaces() {
+        let result = tokenize("1 > 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].str, ">");
+        assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn ne_operator_with_spaces() {
+        let result = tokenize("1 != 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].str, "!=");
+        assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn eq_operator_with_spaces() {
+        let result = tokenize("1 == 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 3);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].str, "==");
+        assert_eq!(result[2].val, 2);
     }
 
     #[test]
