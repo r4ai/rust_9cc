@@ -3,7 +3,7 @@ assert() {
   expected="$1"
   input="$2"
 
-  ./target/debug/main "$input" > tests/tmp/tmp.s
+  ./target/release/main "$input" > tests/tmp/tmp.s
   cc -o tests/tmp/tmp.out tests/tmp/tmp.s
   ./tests/tmp/tmp.out
   actual="$?"
@@ -27,5 +27,6 @@ assert 41 " 12 + 34 - 5 "
 assert 47 "5+6*7"
 assert 15 "5*(9-6)"
 assert 4 "(3+5)/2"
+assert 10 "-10+20"
 
 echo "===test end==="
