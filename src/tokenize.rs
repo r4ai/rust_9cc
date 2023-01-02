@@ -2,6 +2,30 @@ use std::{collections::VecDeque, str::Chars};
 
 use crate::result::{TokenizeError, TokenizeResult};
 
+pub struct UserInput {
+    chars: VecDeque<char>,
+}
+
+impl UserInput {
+    pub fn new(input: String) -> Self {
+        Self {
+            chars: input.chars().collect(),
+        }
+    }
+
+    pub fn parse_num(&mut self) -> usize {
+        let mut num = 0;
+        while let Some(c) = self.chars.front() {
+            if !c.is_ascii_digit() {
+                break;
+            }
+            num = num * 10 + (c.to_digit(10).unwrap() as usize);
+            self.chars.pop_front();
+        }
+        num
+    }
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Reserved,
@@ -81,40 +105,29 @@ impl Tokens {
 }
 
 pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
-    let c = input.chars();
-    fn check_tmp(tmp: &mut String, tokens: &mut Tokens) -> TokenizeResult<()> {
-        if !tmp.is_empty() {
-            let token = Token::new_num(match tmp.parse::<i64>() {
-                Ok(val) => val,
-                Err(_) => return Err(TokenizeError::InvalidNumber(tmp.clone())),
-            })?;
-            tokens.push_back(token);
-            tmp.clear();
-        }
-        Ok(())
-    }
+    let mut user_input = UserInput::new(input.clone());
+    let mut tokens = Tokens::init(input.clone(), input.capacity());
 
-    let mut tokens = Tokens::init(input.clone(), c.clone().count());
-    let mut tmp = String::new();
+    while let Some(c) = user_input.chars.front() {
+        if c.is_ascii_whitespace() {
+            user_input.chars.pop_front();
+            continue;
+        }
 
-    for c_i in c {
-        if c_i == ' ' {
-            check_tmp(&mut tmp, &mut tokens)?;
+        if ['+', '-', '*', '/', '(', ')'].contains(c) {
+            tokens.push_back(Token::new_op(*c)?);
+            user_input.chars.pop_front();
             continue;
         }
-        if c_i.is_ascii_digit() {
-            tmp.push(c_i);
+
+        if c.is_ascii_digit() {
+            let num = user_input.parse_num();
+            tokens.push_back(Token::new_num(num as i64)?);
             continue;
         }
-        if Token::new_op(c_i).is_ok() {
-            check_tmp(&mut tmp, &mut tokens)?;
-            let token = Token::new_op(c_i)?;
-            tokens.push_back(token);
-            continue;
-        }
-        return Err(TokenizeError::InvalidSyntax(c_i.to_string()));
+
+        return Err(TokenizeError::InvalidSyntax(input));
     }
-    check_tmp(&mut tmp, &mut tokens)?;
 
     Ok(tokens)
 }
