@@ -12,6 +12,12 @@ pub enum NodeKind {
     Sub,
     Mul,
     Div,
+    Lt,
+    Gt,
+    Leq,
+    Geq,
+    Eq,
+    Ne,
     Num,
     Nil,
 }
@@ -45,6 +51,49 @@ impl Node {
 }
 
 fn expr(tokens: &mut Tokens) -> Node {
+    let mut node = equality(tokens);
+    loop {
+        if tokens.consume_op("+") {
+            node = Node::new(NodeKind::Add, node, equality(tokens));
+        } else if tokens.consume_op("-") {
+            node = Node::new(NodeKind::Sub, node, equality(tokens));
+        } else {
+            return node;
+        }
+    }
+}
+
+fn equality(tokens: &mut Tokens) -> Node {
+    let mut node = relational(tokens);
+    loop {
+        if tokens.consume_op("==") {
+            node = Node::new(NodeKind::Eq, node, relational(tokens));
+        } else if tokens.consume_op("!=") {
+            node = Node::new(NodeKind::Ne, node, relational(tokens));
+        } else {
+            return node;
+        }
+    }
+}
+
+fn relational(tokens: &mut Tokens) -> Node {
+    let mut node = add(tokens);
+    loop {
+        if tokens.consume_op("<") {
+            node = Node::new(NodeKind::Lt, node, add(tokens));
+        } else if tokens.consume_op("<=") {
+            node = Node::new(NodeKind::Leq, node, add(tokens));
+        } else if tokens.consume_op(">") {
+            node = Node::new(NodeKind::Gt, add(tokens), node);
+        } else if tokens.consume_op(">=") {
+            node = Node::new(NodeKind::Geq, add(tokens), node);
+        } else {
+            return node;
+        }
+    }
+}
+
+fn add(tokens: &mut Tokens) -> Node {
     let mut node = mul(tokens);
     loop {
         if tokens.consume_op("+") {
