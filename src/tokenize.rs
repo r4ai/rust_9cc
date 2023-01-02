@@ -52,11 +52,11 @@ impl Tokens {
     }
 
     pub fn push_front(&mut self, token: Token) {
-        self.tokens.push_front(token);
+        self.tokens.push_front(token)
     }
 
     pub fn push_back(&mut self, token: Token) {
-        self.tokens.push_back(token);
+        self.tokens.push_back(token)
     }
 
     pub fn pop_front(&mut self) -> Option<Token> {
@@ -172,6 +172,16 @@ mod tests {
         assert_eq!(result[0].val, 1);
         assert_eq!(result[1].char, '/');
         assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn unary_operator_with_spaces() {
+        let result = tokenize("-1 + 2".to_string()).unwrap().tokens;
+        assert_eq!(result.len(), 4);
+        assert_eq!(result[0].char, '-');
+        assert_eq!(result[1].val, 1);
+        assert_eq!(result[2].char, '+');
+        assert_eq!(result[3].val, 2);
     }
 
     #[test]

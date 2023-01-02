@@ -58,15 +58,25 @@ fn expr(tokens: &mut Tokens) -> Node {
 }
 
 fn mul(tokens: &mut Tokens) -> Node {
-    let mut node = primary(tokens);
+    let mut node = unary(tokens);
     loop {
         if tokens.consume_op('*') {
-            node = Node::new(NodeKind::Mul, node, primary(tokens));
+            node = Node::new(NodeKind::Mul, node, unary(tokens));
         } else if tokens.consume_op('/') {
-            node = Node::new(NodeKind::Div, node, primary(tokens));
+            node = Node::new(NodeKind::Div, node, unary(tokens));
         } else {
             return node;
         }
+    }
+}
+
+fn unary(tokens: &mut Tokens) -> Node {
+    if tokens.consume_op('+') {
+        primary(tokens)
+    } else if tokens.consume_op('-') {
+        Node::new(NodeKind::Sub, Node::new_num(0), primary(tokens))
+    } else {
+        primary(tokens)
     }
 }
 
@@ -367,6 +377,90 @@ mod tests {
                 })),
             },
             "`1 * 2+(3+4)` の得られたAST:\n{:?}",
+            node
+        );
+    }
+
+    #[test]
+    fn check_ast_with_unary_operator() {
+        let mut tokens = tokenize("-1 + 2".to_string()).unwrap();
+        let node = expr(&mut tokens);
+        assert_eq!(
+            node,
+            Node {
+                kind: NodeKind::Add,
+                val: 0,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::Sub,
+                    val: 0,
+                    lhs: Some(Box::new(Node {
+                        kind: NodeKind::Num,
+                        val: 0,
+                        lhs: None,
+                        rhs: None,
+                    })),
+                    rhs: Some(Box::new(Node {
+                        kind: NodeKind::Num,
+                        val: 1,
+                        lhs: None,
+                        rhs: None,
+                    })),
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 2,
+                    lhs: None,
+                    rhs: None,
+                })),
+            },
+            "`-1 + 2` の得られたAST:\n{:?}",
+            node
+        );
+    }
+
+    #[test]
+    fn check_ast_with_unary_operator_complecated() {
+        let mut tokens = tokenize("-3*+5 + 20".to_string()).unwrap();
+        let node = expr(&mut tokens);
+        assert_eq!(
+            node,
+            Node {
+                kind: NodeKind::Add,
+                val: 0,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::Mul,
+                    val: 0,
+                    lhs: Some(Box::new(Node {
+                        kind: NodeKind::Sub,
+                        val: 0,
+                        lhs: Some(Box::new(Node {
+                            kind: NodeKind::Num,
+                            val: 0,
+                            lhs: None,
+                            rhs: None,
+                        })),
+                        rhs: Some(Box::new(Node {
+                            kind: NodeKind::Num,
+                            val: 3,
+                            lhs: None,
+                            rhs: None,
+                        })),
+                    })),
+                    rhs: Some(Box::new(Node {
+                        kind: NodeKind::Num,
+                        val: 5,
+                        lhs: None,
+                        rhs: None
+                    }))
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 20,
+                    lhs: None,
+                    rhs: None,
+                })),
+            },
+            "`-3*+5 + 20` の得られたAST:\n{:?}",
             node
         );
     }
