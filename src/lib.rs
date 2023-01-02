@@ -13,9 +13,7 @@ pub enum NodeKind {
     Mul,
     Div,
     Lt,
-    Gt,
-    Leq,
-    Geq,
+    Le,
     Eq,
     Ne,
     Num,
@@ -82,11 +80,11 @@ fn relational(tokens: &mut Tokens) -> Node {
         if tokens.consume_op("<") {
             node = Node::new(NodeKind::Lt, node, add(tokens));
         } else if tokens.consume_op("<=") {
-            node = Node::new(NodeKind::Leq, node, add(tokens));
+            node = Node::new(NodeKind::Le, node, add(tokens));
         } else if tokens.consume_op(">") {
-            node = Node::new(NodeKind::Gt, add(tokens), node);
+            node = Node::new(NodeKind::Lt, add(tokens), node);
         } else if tokens.consume_op(">=") {
-            node = Node::new(NodeKind::Geq, add(tokens), node);
+            node = Node::new(NodeKind::Le, add(tokens), node);
         } else {
             return node;
         }
@@ -188,6 +186,26 @@ fn gen(node: &Node) -> String {
         NodeKind::Div => {
             result.push_str("  cqo\n");
             result.push_str("  idiv rdi\n");
+        }
+        NodeKind::Eq => {
+            result.push_str("  cmp rax, rdi\n");
+            result.push_str("  sete al\n");
+            result.push_str("  movzb rax, al\n");
+        }
+        NodeKind::Ne => {
+            result.push_str("  cmp rax, rdi\n");
+            result.push_str("  setne al\n");
+            result.push_str("  movzb rax, al\n");
+        }
+        NodeKind::Lt => {
+            result.push_str("  cmp rax, rdi\n");
+            result.push_str("  setl al\n");
+            result.push_str("  movzb rax, al\n");
+        }
+        NodeKind::Le => {
+            result.push_str("  cmp rax, rdi\n");
+            result.push_str("  setle al\n");
+            result.push_str("  movzb rax, al\n");
         }
         _ => {}
     };
@@ -510,6 +528,114 @@ mod tests {
                 })),
             },
             "`-3*+5 + 20` の得られたAST:\n{:?}",
+            node
+        );
+    }
+
+    #[test]
+    fn check_ast_with_lt_operator() {
+        let mut tokens = tokenize("1 < 2".to_string()).unwrap();
+        let node = expr(&mut tokens);
+        assert_eq!(
+            node,
+            Node {
+                kind: NodeKind::Lt,
+                val: 0,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 1,
+                    lhs: None,
+                    rhs: None,
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 2,
+                    lhs: None,
+                    rhs: None,
+                })),
+            },
+            "`1 < 2` の得られたAST:\n{:?}",
+            node
+        );
+    }
+
+    #[test]
+    fn check_ast_with_le_operator() {
+        let mut tokens = tokenize("1 <= 2".to_string()).unwrap();
+        let node = expr(&mut tokens);
+        assert_eq!(
+            node,
+            Node {
+                kind: NodeKind::Le,
+                val: 0,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 1,
+                    lhs: None,
+                    rhs: None,
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 2,
+                    lhs: None,
+                    rhs: None,
+                })),
+            },
+            "`1 <= 2` の得られたAST:\n{:?}",
+            node
+        );
+    }
+
+    #[test]
+    fn check_ast_with_eq_operator() {
+        let mut tokens = tokenize("1 == 2".to_string()).unwrap();
+        let node = expr(&mut tokens);
+        assert_eq!(
+            node,
+            Node {
+                kind: NodeKind::Eq,
+                val: 0,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 1,
+                    lhs: None,
+                    rhs: None,
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 2,
+                    lhs: None,
+                    rhs: None,
+                })),
+            },
+            "`1 == 2` の得られたAST:\n{:?}",
+            node
+        );
+    }
+
+    #[test]
+    fn check_ast_with_ne_operator() {
+        let mut tokens = tokenize("1 != 2".to_string()).unwrap();
+        let node = expr(&mut tokens);
+        assert_eq!(
+            node,
+            Node {
+                kind: NodeKind::Ne,
+                val: 0,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 1,
+                    lhs: None,
+                    rhs: None,
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Num,
+                    val: 2,
+                    lhs: None,
+                    rhs: None,
+                })),
+            },
+            "`1 != 2` の得られたAST:\n{:?}",
             node
         );
     }
