@@ -151,7 +151,7 @@ pub fn cli(args: Vec<String>) -> String {
     result.push_str("main:\n");
 
     let node = expr(&mut tokens);
-    dbg!(&node);
+    // dbg!(&node);
 
     let asm_code = gen(&node);
     result.push_str(asm_code.as_str());
