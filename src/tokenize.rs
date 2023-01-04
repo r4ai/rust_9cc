@@ -89,6 +89,10 @@ impl UserInput {
                 let c = self.pop_front()?;
                 Some(c.to_string())
             }
+            ';' => {
+                let c = self.pop_front()?;
+                Some(c.to_string())
+            }
             _ => None,
         }
     }
@@ -96,8 +100,9 @@ impl UserInput {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
-    Reserved,
-    Num,
+    Reserved, // 記号
+    Ident,    // 識別子
+    Num,      // 整数トークン
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -154,6 +159,10 @@ impl Tokens {
         self.tokens.front()
     }
 
+    pub fn len(&self) -> usize {
+        self.tokens.len()
+    }
+
     pub fn consume_op(&mut self, op: &str) -> bool {
         let token = match self.front() {
             Some(v) => v,
@@ -173,6 +182,17 @@ pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
 
     while let Some(c) = user_input.front() {
         if c.is_ascii_whitespace() {
+            user_input.pop_front();
+            continue;
+        }
+
+        if c.is_ascii_lowercase() {
+            tokens.push_back(Token {
+                kind: TokenKind::Ident,
+                val: 0,
+                str: c.to_string(),
+                len: 1,
+            });
             user_input.pop_front();
             continue;
         }
@@ -323,16 +343,6 @@ mod tests {
         assert_eq!(result[0].val, 1);
         assert_eq!(result[1].str, "==");
         assert_eq!(result[2].val, 2);
-    }
-
-    #[test]
-    fn invalid_number() {
-        let result = tokenize("1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 0 + a".to_string());
-        assert!(
-            result.is_err(),
-            "エラーが発生すべきですが、発生しませんでした。\n{:?}",
-            result
-        );
     }
 
     #[test]

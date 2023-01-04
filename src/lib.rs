@@ -4,7 +4,7 @@ mod result;
 mod tokenize;
 
 use codegen::gen;
-use parse::expr;
+use parse::program;
 use tokenize::tokenize;
 
 pub fn cli(args: Vec<String>) -> String {
@@ -20,10 +20,11 @@ pub fn cli(args: Vec<String>) -> String {
     result.push_str(".globl main\n");
     result.push_str("main:\n");
 
-    let node = expr(&mut tokens);
+    let code = program(&mut tokens);
+    let first_node = &code[0];
     // dbg!(&node);
 
-    let asm_code = gen(&node);
+    let asm_code = gen(first_node);
     result.push_str(asm_code.as_str());
 
     result.push_str("  pop rax\n");
