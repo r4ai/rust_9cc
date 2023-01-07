@@ -346,6 +346,26 @@ mod tests {
     }
 
     #[test]
+    fn newline_operator() {
+        let result = tokenize("1 + 3 * 4; -2 * 3 + 3".to_string())
+            .unwrap()
+            .tokens;
+        assert_eq!(result.len(), 12);
+        assert_eq!(result[0].val, 1);
+        assert_eq!(result[1].str, "+");
+        assert_eq!(result[2].val, 3);
+        assert_eq!(result[3].str, "*");
+        assert_eq!(result[4].val, 4);
+        assert_eq!(result[5].str, ";");
+        assert_eq!(result[6].str, "-");
+        assert_eq!(result[7].val, 2);
+        assert_eq!(result[8].str, "*");
+        assert_eq!(result[9].val, 3);
+        assert_eq!(result[10].str, "+");
+        assert_eq!(result[11].val, 3);
+    }
+
+    #[test]
     fn invalid_operator() {
         let result = tokenize("1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 0 % 4".to_string());
         assert!(

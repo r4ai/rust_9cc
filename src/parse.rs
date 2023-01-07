@@ -434,4 +434,45 @@ mod tests {
             node
         );
     }
+
+    #[test]
+    fn check_ast_with_multi_lines() {
+        let mut tokens = tokenize("1 + 2; 3 + -4 * 3;".to_string()).unwrap();
+        let nodes = program(&mut tokens);
+        assert_eq!(nodes.len(), 2);
+        let node_1 = &nodes[0];
+        let node_2 = &nodes[1];
+        assert_eq!(
+            node_1,
+            &Node {
+                kind: NodeKind::Add,
+                lhs: Some(Box::new(Node::new_num(1))),
+                rhs: Some(Box::new(Node::new_num(2))),
+                ..Node::default()
+            },
+            "`1 + 2;` の得られたAST:\n{:?}",
+            node_1
+        );
+        assert_eq!(
+            node_2,
+            &Node {
+                kind: NodeKind::Add,
+                lhs: Some(Box::new(Node::new_num(3))),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Mul,
+                    lhs: Some(Box::new(Node {
+                        kind: NodeKind::Sub,
+                        lhs: Some(Box::new(Node::new_num(0))),
+                        rhs: Some(Box::new(Node::new_num(4))),
+                        ..Node::default()
+                    })),
+                    rhs: Some(Box::new(Node::new_num(3))),
+                    ..Node::default()
+                })),
+                ..Node::default()
+            },
+            "`3 + -4 * 3;` の得られたAST:\n{:?}",
+            node_2
+        );
+    }
 }
