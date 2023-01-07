@@ -215,6 +215,8 @@ pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
 
 #[cfg(test)]
 mod tests {
+    use crate::tokenize::TokenKind;
+
     use super::tokenize;
 
     #[test]
@@ -343,6 +345,34 @@ mod tests {
         assert_eq!(result[0].val, 1);
         assert_eq!(result[1].str, "==");
         assert_eq!(result[2].val, 2);
+    }
+
+    #[test]
+    fn single_local_variable() {
+        let result = tokenize("a = 3 * -2; b = 2; -a + b;".to_string())
+            .unwrap()
+            .tokens;
+        assert_eq!(result.len(), 16);
+        assert_eq!(result[0].kind, TokenKind::Ident);
+        assert_eq!(result[0].str, "a");
+        assert_eq!(result[1].str, "=");
+        assert_eq!(result[2].val, 3);
+        assert_eq!(result[3].str, "*");
+        assert_eq!(result[4].str, "-");
+        assert_eq!(result[5].val, 2);
+        assert_eq!(result[6].str, ";");
+        assert_eq!(result[7].kind, TokenKind::Ident);
+        assert_eq!(result[7].str, "b");
+        assert_eq!(result[8].str, "=");
+        assert_eq!(result[9].val, 2);
+        assert_eq!(result[10].str, ";");
+        assert_eq!(result[11].str, "-");
+        assert_eq!(result[12].kind, TokenKind::Ident);
+        assert_eq!(result[12].str, "a");
+        assert_eq!(result[13].str, "+");
+        assert_eq!(result[14].kind, TokenKind::Ident);
+        assert_eq!(result[14].str, "b");
+        assert_eq!(result[15].str, ";");
     }
 
     #[test]

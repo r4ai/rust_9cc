@@ -1,11 +1,42 @@
 use crate::parse::{Node, NodeKind};
 
+fn gen_lval(node: &Node) -> String {
+    let mut result = String::new();
+    if node.kind != NodeKind::LVar {
+        panic!("代入の左辺値が変数ではありません");
+    }
+    result.push_str("  mov rax, rbp\n");
+    result.push_str(&format!("  sub rax, {}\n", node.offset));
+    result.push_str("  push rax\n");
+
+    result
+}
+
 pub fn gen(node: &Node) -> String {
     let mut result = String::new();
-    if node.kind == NodeKind::Num {
-        result.push_str(&format!("  push {}\n", node.val));
-        return result;
-    }
+    match node.kind {
+        NodeKind::Num => {
+            result.push_str(&format!("  push {}\n", node.val));
+            return result;
+        }
+        NodeKind::LVar => {
+            result.push_str(gen_lval(node).as_str());
+            result.push_str("  pop rax\n");
+            result.push_str("  mov rax, [rax]\n");
+            result.push_str("  push rax\n");
+            return result;
+        }
+        NodeKind::Assign => {
+            result.push_str(gen_lval(node.lhs.as_ref().unwrap()).as_str());
+            result.push_str(gen(node.rhs.as_ref().unwrap()).as_str());
+            result.push_str("  pop rdi\n");
+            result.push_str("  pop rax\n");
+            result.push_str("  mov [rax], rdi\n");
+            result.push_str("  push rdi\n");
+            return result;
+        }
+        _ => {}
+    };
 
     result.push_str(
         gen(match &node.lhs {

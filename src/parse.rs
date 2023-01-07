@@ -436,6 +436,77 @@ mod tests {
     }
 
     #[test]
+    fn check_ast_with_local_variables() {
+        let mut tokens = tokenize("a = 2 * 3; b = 3 + -2; a * b;".to_string()).unwrap();
+        let nodes = program(&mut tokens);
+        assert_eq!(nodes.len(), 3);
+        assert_eq!(
+            &nodes[0],
+            &Node {
+                kind: NodeKind::Assign,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::LVar,
+                    offset: ('a' as i64 - 'a' as i64 + 1) * 8,
+                    ..Node::default()
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Mul,
+                    lhs: Some(Box::new(Node::new_num(2))),
+                    rhs: Some(Box::new(Node::new_num(3))),
+                    ..Node::default()
+                })),
+                ..Node::default()
+            },
+            "`a = 2 * 3;` の得られたAST:\n{:?}",
+            &nodes[0]
+        );
+        assert_eq!(
+            &nodes[1],
+            &Node {
+                kind: NodeKind::Assign,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::LVar,
+                    offset: ('b' as i64 - 'a' as i64 + 1) * 8,
+                    ..Node::default()
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::Add,
+                    lhs: Some(Box::new(Node::new_num(3))),
+                    rhs: Some(Box::new(Node {
+                        kind: NodeKind::Sub,
+                        lhs: Some(Box::new(Node::new_num(0))),
+                        rhs: Some(Box::new(Node::new_num(2))),
+                        ..Node::default()
+                    })),
+                    ..Node::default()
+                })),
+                ..Node::default()
+            },
+            "`b = 3 + -2;` の得られたAST:\n{:?}",
+            &nodes[1]
+        );
+        assert_eq!(
+            &nodes[2],
+            &Node {
+                kind: NodeKind::Mul,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::LVar,
+                    offset: ('a' as i64 - 'a' as i64 + 1) * 8,
+                    ..Node::default()
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::LVar,
+                    offset: ('b' as i64 - 'a' as i64 + 1) * 8,
+                    ..Node::default()
+                })),
+                ..Node::default()
+            },
+            "`a * b;` の得られたAST:\n{:?}",
+            &nodes[2]
+        );
+    }
+
+    #[test]
     fn check_ast_with_multi_lines() {
         let mut tokens = tokenize("1 + 2; 3 + -4 * 3;".to_string()).unwrap();
         let nodes = program(&mut tokens);

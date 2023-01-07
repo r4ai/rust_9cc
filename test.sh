@@ -50,4 +50,10 @@ assert 1 "1>=0;"
 assert 1 "1>=1;"
 assert 0 "1>=2;"
 
+# LOCAL VARIABLES
+assert 3 "a=3; a;"
+assert 8 "a=3; z=5; a+z;"
+assert 6 "f=3 * 2; f;"
+assert 21 "a=1; b=2; c=3; d=4; e=5; f=6; a+b+c+d+e+f;"
+
 echo "===test end===;"
