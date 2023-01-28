@@ -2,18 +2,18 @@ use crate::tokenize::{Token, TokenKind, Tokens};
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum NodeKind {
-    Add,
-    Sub,
-    Mul,
-    Div,
-    Lt,
-    Le,
-    Eq,
-    Ne,
-    Assign,
-    LVar,
-    Num,
-    Nil,
+    Add,    // +
+    Sub,    // -
+    Mul,    // *
+    Div,    // /
+    Lt,     // <
+    Le,     // <=
+    Eq,     // ==
+    Ne,     // !=
+    Assign, // =
+    LVar,   // local variable
+    Num,    // integer
+    Nil,    // empty node
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -57,6 +57,7 @@ impl Node {
     }
 }
 
+/// program = stmt*
 pub fn program(tokens: &mut Tokens) -> Vec<Node> {
     let mut code = Vec::with_capacity(1);
     while tokens.len() > 0 {
@@ -65,6 +66,7 @@ pub fn program(tokens: &mut Tokens) -> Vec<Node> {
     code
 }
 
+/// stmt = expr ";"
 pub fn stmt(tokens: &mut Tokens) -> Node {
     let node = expr(tokens);
     if !tokens.consume_op(";") {
@@ -74,10 +76,12 @@ pub fn stmt(tokens: &mut Tokens) -> Node {
     node
 }
 
+/// expr = assign
 pub fn expr(tokens: &mut Tokens) -> Node {
     assign(tokens)
 }
 
+/// assign = equality ("=" assign)?
 fn assign(tokens: &mut Tokens) -> Node {
     let mut node = equality(tokens);
     if tokens.consume_op("=") {
@@ -86,6 +90,7 @@ fn assign(tokens: &mut Tokens) -> Node {
     node
 }
 
+/// equality = relational ("==" relational | "!=" relational)*
 fn equality(tokens: &mut Tokens) -> Node {
     let mut node = relational(tokens);
     loop {
@@ -99,6 +104,7 @@ fn equality(tokens: &mut Tokens) -> Node {
     }
 }
 
+/// relational = add ("<" add | "<=" add | ">" add | ">=" add)*
 fn relational(tokens: &mut Tokens) -> Node {
     let mut node = add(tokens);
     loop {
@@ -116,6 +122,7 @@ fn relational(tokens: &mut Tokens) -> Node {
     }
 }
 
+/// add = mul ("+" mul | "-" mul)*
 fn add(tokens: &mut Tokens) -> Node {
     let mut node = mul(tokens);
     loop {
@@ -129,6 +136,7 @@ fn add(tokens: &mut Tokens) -> Node {
     }
 }
 
+/// mul = unary ("*" unary | "/" unary)*
 fn mul(tokens: &mut Tokens) -> Node {
     let mut node = unary(tokens);
     loop {
@@ -142,6 +150,7 @@ fn mul(tokens: &mut Tokens) -> Node {
     }
 }
 
+/// unary = ("+" | "-")? primary
 fn unary(tokens: &mut Tokens) -> Node {
     if tokens.consume_op("+") {
         primary(tokens)
@@ -152,6 +161,7 @@ fn unary(tokens: &mut Tokens) -> Node {
     }
 }
 
+/// primary = "(" expr ")" | ident | num
 fn primary(tokens: &mut Tokens) -> Node {
     if tokens.consume_op("(") {
         let node = expr(tokens);
@@ -200,72 +210,65 @@ mod tests {
     #[test]
     fn check_ast_with_add() {
         let mut tokens = tokenize("1 + 2;".to_string()).unwrap();
-        let node = &program(&mut tokens)[0];
-        assert_eq!(
-            node,
-            &Node {
-                kind: NodeKind::Add,
-                lhs: Some(Box::new(Node::new_num(1))),
-                rhs: Some(Box::new(Node::new_num(2))),
-                ..Node::default()
-            }
-        );
+        let actual_node = &program(&mut tokens)[0];
+        let expected = Node {
+            kind: NodeKind::Add,
+            lhs: Some(Box::new(Node::new_num(1))),
+            rhs: Some(Box::new(Node::new_num(2))),
+            ..Node::default()
+        };
+        assert_eq!(actual_node, &expected);
     }
 
     #[test]
     fn check_ast_with_sub() {
         let mut tokens = tokenize("1 - 2;".to_string()).unwrap();
-        let node = &program(&mut tokens)[0];
-        assert_eq!(
-            node,
-            &Node {
-                kind: NodeKind::Sub,
-                lhs: Some(Box::new(Node::new_num(1))),
-                rhs: Some(Box::new(Node::new_num(2))),
-                ..Node::default()
-            }
-        );
+        let actual_node = &program(&mut tokens)[0];
+        let expected = Node {
+            kind: NodeKind::Sub,
+            lhs: Some(Box::new(Node::new_num(1))),
+            rhs: Some(Box::new(Node::new_num(2))),
+            ..Node::default()
+        };
+        assert_eq!(actual_node, &expected);
     }
 
     #[test]
     fn check_ast_with_add_and_sub() {
         let mut tokens = tokenize("1 + 2 - 3;".to_string()).unwrap();
-        let node = &program(&mut tokens)[0];
-        assert_eq!(
-            node,
-            &Node {
-                kind: NodeKind::Sub,
-                lhs: Some(Box::new(Node {
-                    kind: NodeKind::Add,
-                    lhs: Some(Box::new(Node::new_num(1))),
-                    rhs: Some(Box::new(Node::new_num(2))),
-                    ..Node::default()
-                })),
-                rhs: Some(Box::new(Node::new_num(3))),
+        let actual_node = &program(&mut tokens)[0];
+        let expected = &Node {
+            kind: NodeKind::Sub,
+            lhs: Some(Box::new(Node {
+                kind: NodeKind::Add,
+                lhs: Some(Box::new(Node::new_num(1))),
+                rhs: Some(Box::new(Node::new_num(2))),
                 ..Node::default()
-            }
-        );
+            })),
+            rhs: Some(Box::new(Node::new_num(3))),
+            ..Node::default()
+        };
+        assert_eq!(actual_node, expected);
     }
 
     #[test]
     fn check_ast_with_multipy() {
         let mut tokens = tokenize("1 + 2 * 3;".to_string()).unwrap();
-        let node = &program(&mut tokens)[0];
-        assert_eq!(
-            node,
-            &Node {
-                kind: NodeKind::Add,
-                lhs: Some(Box::new(Node::new_num(1))),
-                rhs: Some(Box::new(Node {
-                    kind: NodeKind::Mul,
-                    lhs: Some(Box::new(Node::new_num(2))),
-                    rhs: Some(Box::new(Node::new_num(3))),
-                    ..Node::default()
-                })),
+        let actual_node = &program(&mut tokens)[0];
+        let expected = &Node {
+            kind: NodeKind::Add,
+            lhs: Some(Box::new(Node::new_num(1))),
+            rhs: Some(Box::new(Node {
+                kind: NodeKind::Mul,
+                lhs: Some(Box::new(Node::new_num(2))),
+                rhs: Some(Box::new(Node::new_num(3))),
                 ..Node::default()
-            },
-            "`1 + 2 * 3` の得られたAST:\n{:?}",
-            node
+            })),
+            ..Node::default()
+        };
+        assert_eq!(
+            actual_node, expected,
+            "`1 + 2 * 3` の得られたAST:\n{actual_node:?}"
         );
     }
 
@@ -286,8 +289,7 @@ mod tests {
                 rhs: Some(Box::new(Node::new_num(2))),
                 ..Node::default()
             },
-            "`4 / 2 - 2` の得られたAST:\n{:?}",
-            node
+            "`4 / 2 - 2` の得られたAST:\n{node:?}"
         );
     }
 
@@ -313,8 +315,7 @@ mod tests {
                 })),
                 ..Node::default()
             },
-            "`1 * 2+(3+4)` の得られたAST:\n{:?}",
-            node
+            "`1 * 2+(3+4)` の得られたAST:\n{node:?}"
         );
     }
 
@@ -335,8 +336,7 @@ mod tests {
                 rhs: Some(Box::new(Node::new_num(2))),
                 ..Node::default()
             },
-            "`-1 + 2` の得られたAST:\n{:?}",
-            node
+            "`-1 + 2` の得られたAST:\n{node:?}"
         );
     }
 
@@ -362,8 +362,7 @@ mod tests {
                 rhs: Some(Box::new(Node::new_num(20))),
                 ..Node::default()
             },
-            "`-3*+5 + 20` の得られたAST:\n{:?}",
-            node
+            "`-3*+5 + 20` の得られたAST:\n{node:?}"
         );
     }
 
@@ -379,8 +378,7 @@ mod tests {
                 rhs: Some(Box::new(Node::new_num(2))),
                 ..Node::default()
             },
-            "`1 < 2` の得られたAST:\n{:?}",
-            node
+            "`1 < 2` の得られたAST:\n{node:?}"
         );
     }
 
@@ -396,8 +394,7 @@ mod tests {
                 rhs: Some(Box::new(Node::new_num(2))),
                 ..Node::default()
             },
-            "`1 <= 2` の得られたAST:\n{:?}",
-            node
+            "`1 <= 2` の得られたAST:\n{node:?}"
         );
     }
 
@@ -413,8 +410,7 @@ mod tests {
                 rhs: Some(Box::new(Node::new_num(2))),
                 ..Node::default()
             },
-            "`1 == 2` の得られたAST:\n{:?}",
-            node
+            "`1 == 2` の得られたAST:\n{node:?}"
         );
     }
 
@@ -430,8 +426,7 @@ mod tests {
                 rhs: Some(Box::new(Node::new_num(2))),
                 ..Node::default()
             },
-            "`1 != 2` の得られたAST:\n{:?}",
-            node
+            "`1 != 2` の得られたAST:\n{node:?}"
         );
     }
 
@@ -521,8 +516,7 @@ mod tests {
                 rhs: Some(Box::new(Node::new_num(2))),
                 ..Node::default()
             },
-            "`1 + 2;` の得られたAST:\n{:?}",
-            node_1
+            "`1 + 2;` の得られたAST:\n{node_1:?}"
         );
         assert_eq!(
             node_2,
@@ -542,8 +536,7 @@ mod tests {
                 })),
                 ..Node::default()
             },
-            "`3 + -4 * 3;` の得られたAST:\n{:?}",
-            node_2
+            "`3 + -4 * 3;` の得られたAST:\n{node_2:?}"
         );
     }
 }
