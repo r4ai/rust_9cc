@@ -1,15 +1,17 @@
 use crate::parse::{Node, NodeKind};
 
+/// 与えられたノードが変数を指しているときに、その変数のアドレスを計算して、それをスタックにプッシュする。
+/// それ以外の場合にはエラーを表示する。
 fn gen_lval(node: &Node) -> String {
-    let mut result = String::new();
-    if node.kind != NodeKind::LVar {
+    if node.kind == NodeKind::LVar {
+        let mut result = String::new();
+        result.push_str("  mov rax, rbp\n");
+        result.push_str(&format!("  sub rax, {}\n", node.offset));
+        result.push_str("  push rax\n");
+        result
+    } else {
         panic!("代入の左辺値が変数ではありません");
     }
-    result.push_str("  mov rax, rbp\n");
-    result.push_str(&format!("  sub rax, {}\n", node.offset));
-    result.push_str("  push rax\n");
-
-    result
 }
 
 pub fn gen(node: &Node) -> String {
