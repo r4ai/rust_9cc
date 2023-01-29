@@ -29,6 +29,10 @@ impl UserInput {
         self.chars.get(index)
     }
 
+    fn starts_with(&self, s: &str) -> bool {
+        self.chars.iter().zip(s.chars()).all(|(a, b)| a == &b)
+    }
+
     pub fn parse_num(&mut self) -> Option<usize> {
         if !self.front()?.is_ascii_digit() {
             return None;
@@ -116,11 +120,26 @@ impl UserInput {
         }
         Some(lvar)
     }
+
+    pub fn parse_return(&mut self) -> Option<Token> {
+        if self.starts_with("return") && !self.get(6)?.is_ascii_alphanumeric() {
+            self.chars.drain(..6);
+            Some(Token {
+                kind: TokenKind::Return,
+                val: 0,
+                str: "return".to_string(),
+                len: 6,
+            })
+        } else {
+            None
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum TokenKind {
     Reserved, // 記号
+    Return,   // return
     Ident,    // 識別子
     Num,      // 整数トークン
 }
@@ -196,14 +215,28 @@ impl Tokens {
 
     pub fn consume_op(&mut self, op: &str) -> bool {
         let token = match self.front() {
-            Some(v) => v,
+            Some(token) => token,
             None => return false,
         };
         if token.kind == TokenKind::Reserved && token.str == op {
             self.pop_front();
-            return true;
+            true
+        } else {
+            false
         }
-        false
+    }
+
+    pub fn consume_return(&mut self) -> bool {
+        let token = match self.front() {
+            Some(token) => token,
+            None => return false,
+        };
+        if token.kind == TokenKind::Return {
+            self.pop_front();
+            return true;
+        } else {
+            false
+        }
     }
 }
 
@@ -214,6 +247,11 @@ pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
     while let Some(c) = user_input.front() {
         if c.is_ascii_whitespace() {
             user_input.pop_front();
+            continue;
+        }
+
+        if let Some(return_token) = user_input.parse_return() {
+            tokens.push_back(return_token);
             continue;
         }
 
@@ -240,6 +278,8 @@ pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
 
 #[cfg(test)]
 mod tests_userinput {
+    use crate::tokenize::Token;
+
     use super::UserInput;
 
     #[test]
@@ -292,6 +332,31 @@ mod tests_userinput {
         let mut user_input_op = UserInput::new("+".to_string());
         assert_eq!(user_input_num.parse_lvar(), None);
         assert_eq!(user_input_op.parse_lvar(), None);
+    }
+
+    #[test]
+    fn parse_return() {
+        let mut user_input = UserInput::new("return 3".to_string());
+        assert_eq!(
+            user_input.parse_return(),
+            Some(Token {
+                kind: super::TokenKind::Return,
+                str: "return".to_string(),
+                val: 0,
+                len: 6,
+            })
+        );
+        assert_eq!(user_input.parse_return(), None);
+    }
+
+    #[test]
+    fn parse_return_to_be_skipped() {
+        let mut user_input_num = UserInput::new("123".to_string());
+        let mut user_input_op = UserInput::new("+".to_string());
+        let mut user_input_lvar = UserInput::new("abc".to_string());
+        assert_eq!(user_input_num.parse_return(), None);
+        assert_eq!(user_input_op.parse_return(), None);
+        assert_eq!(user_input_lvar.parse_return(), None);
     }
 }
 

@@ -61,4 +61,12 @@ assert 3 "abc=3; abc;"
 assert 8 "aaa=3; zsnfjei=5; aaa+zsnfjei;"
 assert 9 "num1=3; num2=3; num1 * num2;"
 
+# RETURN STATEMENT
+assert 3 "return 3;"
+assert 8 "return 3+5;"
+assert 6 "return 3*2;"
+assert 21 "return 1+2+3+4+5+6;"
+assert 3 "return 3; return 5;"
+assert 15 "foo=3; bar=5; return foo*bar; return 8;"
+
 echo "===test end==="

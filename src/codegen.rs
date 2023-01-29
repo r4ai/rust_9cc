@@ -17,6 +17,14 @@ fn gen_lval(node: &Node) -> String {
 pub fn gen(node: &Node) -> String {
     let mut result = String::new();
     match node.kind {
+        NodeKind::Return => {
+            result.push_str(gen(node.lhs.as_ref().unwrap()).as_str());
+            result.push_str("  pop rax\n");
+            result.push_str("  mov rsp, rbp\n");
+            result.push_str("  pop rbp\n");
+            result.push_str("  ret\n");
+            return result;
+        }
         NodeKind::Num => {
             result.push_str(&format!("  push {}\n", node.val));
             return result;

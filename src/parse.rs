@@ -11,6 +11,7 @@ pub enum NodeKind {
     Eq,     // ==
     Ne,     // !=
     Assign, // =
+    Return, // return
     LVar,   // local variable
     Num,    // integer
     Nil,    // empty node
@@ -88,9 +89,17 @@ pub fn program(tokens: &mut Tokens) -> Vec<Node> {
     code
 }
 
-/// stmt = expr ";"
+/// stmt = (expr | "return" expr) ";"
 pub fn stmt(tokens: &mut Tokens) -> Node {
-    let node = expr(tokens);
+    let node = if tokens.consume_return() {
+        Node {
+            kind: NodeKind::Return,
+            lhs: Some(Box::new(expr(tokens))),
+            ..Node::default()
+        }
+    } else {
+        expr(tokens)
+    };
     if !tokens.consume_op(";") {
         eprintln!("文末には';'が必要です。");
         std::process::exit(1);
@@ -524,12 +533,12 @@ mod tests {
                 kind: NodeKind::Mul,
                 lhs: Some(Box::new(Node {
                     kind: NodeKind::LVar,
-                    offset: ('a' as i64 - 'a' as i64 + 1) * 8,
+                    offset: 8,
                     ..Node::default()
                 })),
                 rhs: Some(Box::new(Node {
                     kind: NodeKind::LVar,
-                    offset: ('b' as i64 - 'a' as i64 + 1) * 8,
+                    offset: 16,
                     ..Node::default()
                 })),
                 ..Node::default()
@@ -575,6 +584,60 @@ mod tests {
                 ..Node::default()
             },
             "`3 + -4 * 3;` の得られたAST:\n{node_2:?}"
+        );
+    }
+
+    #[test]
+    fn check_ast_with_long_variables() {
+        let mut tokens = tokenize("foo=3; bar = 1; return foo + bar;".to_string()).unwrap();
+        let nodes = program(&mut tokens);
+        assert_eq!(nodes.len(), 3);
+        let node_1 = &nodes[0];
+        let node_2 = &nodes[1];
+        let node_3 = &nodes[2];
+        let expected_1 = Node {
+            kind: NodeKind::Assign,
+            lhs: Some(Box::new(Node {
+                kind: NodeKind::LVar,
+                offset: 8,
+                ..Node::default()
+            })),
+            rhs: Some(Box::new(Node::new_num(3))),
+            ..Node::default()
+        };
+        let expected_2 = Node {
+            kind: NodeKind::Assign,
+            lhs: Some(Box::new(Node {
+                kind: NodeKind::LVar,
+                offset: 16,
+                ..Node::default()
+            })),
+            rhs: Some(Box::new(Node::new_num(1))),
+            ..Node::default()
+        };
+        let expected_3 = Node {
+            kind: NodeKind::Return,
+            lhs: Some(Box::new(Node {
+                kind: NodeKind::Add,
+                lhs: Some(Box::new(Node {
+                    kind: NodeKind::LVar,
+                    offset: 8,
+                    ..Node::default()
+                })),
+                rhs: Some(Box::new(Node {
+                    kind: NodeKind::LVar,
+                    offset: 16,
+                    ..Node::default()
+                })),
+                ..Node::default()
+            })),
+            ..Node::default()
+        };
+        assert_eq!(node_1, &expected_1, "`foo=3;` の得られたAST:\n{node_1:?}");
+        assert_eq!(node_2, &expected_2, "`bar = 1;` の得られたAST:\n{node_2:?}");
+        assert_eq!(
+            node_3, &expected_3,
+            "`return foo + bar;` の得られたAST:\n{node_3:?}"
         );
     }
 }
