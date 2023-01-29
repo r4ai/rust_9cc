@@ -1,6 +1,9 @@
 use std::collections::VecDeque;
 
-use crate::result::{TokenizeError, TokenizeResult};
+use crate::{
+    parse::LVars,
+    result::{TokenizeError, TokenizeResult},
+};
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct UserInput {
@@ -162,6 +165,7 @@ impl Token {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Tokens {
     pub user_input: String,
+    pub lvars: LVars,
     pub tokens: VecDeque<Token>,
 }
 
@@ -169,6 +173,7 @@ impl Tokens {
     pub fn init(user_input: String, capasity: usize) -> Self {
         Self {
             user_input,
+            lvars: LVars::new(),
             tokens: VecDeque::with_capacity(capasity),
         }
     }

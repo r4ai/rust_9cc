@@ -19,8 +19,8 @@ pub enum NodeKind {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Node {
     pub kind: NodeKind,
-    pub val: i64,
-    pub offset: i64,
+    pub val: i64,    // kindがNumの場合のみ使う
+    pub offset: i64, // kindがLVarの場合のみ使う
     pub lhs: Option<Box<Node>>,
     pub rhs: Option<Box<Node>>,
 }
@@ -54,6 +54,28 @@ impl Node {
             lhs: Some(Box::new(lhs)),
             rhs: Some(Box::new(rhs)),
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct LVar {
+    pub name: String,
+    pub len: usize,
+    pub offset: i64,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct LVars {
+    pub vec: Vec<LVar>,
+}
+
+impl LVars {
+    pub fn new() -> Self {
+        Self { vec: Vec::new() }
+    }
+
+    pub fn find(&self, name: &str) -> Option<&LVar> {
+        self.vec.iter().find(|v| v.name == name)
     }
 }
 
@@ -172,13 +194,29 @@ fn primary(tokens: &mut Tokens) -> Node {
     } else if let Some(tk) = tokens.front() {
         match tk.kind {
             TokenKind::Ident => {
-                let node = Node {
-                    kind: NodeKind::LVar,
-                    offset: (tk.str.chars().next().unwrap() as i64 - 'a' as i64 + 1) * 8,
-                    ..Node::default()
-                };
-                tokens.pop_front();
-                return node;
+                if let Some(lvar) = tokens.lvars.find(&tk.str) {
+                    let node = Node {
+                        kind: NodeKind::LVar,
+                        offset: lvar.offset,
+                        ..Node::default()
+                    };
+                    tokens.pop_front();
+                    return node;
+                } else {
+                    let lvar = LVar {
+                        name: tk.str.clone(),
+                        offset: tokens.lvars.vec.len() as i64 * 8 + 8,
+                        len: tk.len,
+                    };
+                    let node = Node {
+                        kind: NodeKind::LVar,
+                        offset: lvar.offset,
+                        ..Node::default()
+                    };
+                    tokens.lvars.vec.push(lvar);
+                    tokens.pop_front();
+                    return node;
+                }
             }
             TokenKind::Num => {
                 let node = Node::new_num(expect_number(&tokens.pop_front()));
