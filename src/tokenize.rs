@@ -96,6 +96,23 @@ impl UserInput {
             _ => None,
         }
     }
+
+    pub fn parse_lvar(&mut self) -> Option<String> {
+        if !self.front()?.is_ascii_alphabetic() {
+            return None;
+        }
+
+        let mut lvar = String::new();
+        while let Some(c) = self.front() {
+            if c.is_ascii_alphanumeric() {
+                lvar.push(*c);
+                self.pop_front();
+            } else {
+                break;
+            }
+        }
+        Some(lvar)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -118,8 +135,8 @@ impl Token {
         Ok(Self {
             kind: TokenKind::Reserved,
             val: 0,
-            str: c,
-            len: 1,
+            str: c.clone(),
+            len: c.len(),
         })
     }
 
@@ -129,6 +146,15 @@ impl Token {
             val,
             str: " ".to_string(),
             len: 1,
+        })
+    }
+
+    pub fn new_lvar(lvar: String) -> TokenizeResult<Token> {
+        Ok(Self {
+            kind: TokenKind::Ident,
+            val: 0,
+            str: lvar.clone(),
+            len: lvar.len(),
         })
     }
 }
@@ -186,14 +212,8 @@ pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
             continue;
         }
 
-        if c.is_ascii_lowercase() {
-            tokens.push_back(Token {
-                kind: TokenKind::Ident,
-                val: 0,
-                str: c.to_string(),
-                len: 1,
-            });
-            user_input.pop_front();
+        if let Some(lvar) = user_input.parse_lvar() {
+            tokens.push_back(Token::new_lvar(lvar)?);
             continue;
         }
 
@@ -214,7 +234,97 @@ pub fn tokenize(input: String) -> TokenizeResult<Tokens> {
 }
 
 #[cfg(test)]
-mod tests {
+mod tests_userinput {
+    use super::UserInput;
+
+    #[test]
+    fn parse_num() {
+        let mut user_input = UserInput::new("123".to_string());
+        assert_eq!(user_input.parse_num(), Some(123));
+        assert_eq!(user_input.parse_num(), None);
+    }
+
+    #[test]
+    fn parse_num_to_be_skipped() {
+        let mut user_input_op = UserInput::new("+".to_string());
+        let mut user_input_lvar = UserInput::new("abc".to_string());
+        assert_eq!(user_input_op.parse_num(), None);
+        assert_eq!(user_input_lvar.parse_num(), None);
+    }
+
+    #[test]
+    fn parse_op_single() {
+        let mut user_input = UserInput::new("+".to_string());
+        assert_eq!(user_input.parse_op(), Some("+".to_string()));
+        assert_eq!(user_input.parse_op(), None);
+    }
+
+    #[test]
+    fn parse_op_double() {
+        let mut user_input = UserInput::new("<=".to_string());
+        assert_eq!(user_input.parse_op(), Some("<=".to_string()));
+        assert_eq!(user_input.parse_op(), None);
+    }
+
+    #[test]
+    fn parse_op_to_be_skipped() {
+        let mut user_input_num = UserInput::new("3".to_string());
+        let mut user_input_lvar = UserInput::new("abc".to_string());
+        assert_eq!(user_input_num.parse_op(), None);
+        assert_eq!(user_input_lvar.parse_op(), None);
+    }
+
+    #[test]
+    fn parse_lvar() {
+        let mut user_input = UserInput::new("abc".to_string());
+        assert_eq!(user_input.parse_lvar(), Some("abc".to_string()));
+        assert_eq!(user_input.parse_lvar(), None);
+    }
+
+    #[test]
+    fn parse_lvar_to_be_skipped() {
+        let mut user_input_num = UserInput::new("123".to_string());
+        let mut user_input_op = UserInput::new("+".to_string());
+        assert_eq!(user_input_num.parse_lvar(), None);
+        assert_eq!(user_input_op.parse_lvar(), None);
+    }
+}
+
+#[cfg(test)]
+mod tests_token {
+    use super::Token;
+    use super::TokenKind;
+
+    #[test]
+    fn new_num() {
+        let token = Token::new_num(123).unwrap();
+        assert_eq!(token.kind, TokenKind::Num);
+        assert_eq!(token.val, 123);
+        assert_eq!(token.str, " ");
+        assert_eq!(token.len, 1);
+    }
+
+    #[test]
+    fn new_op() {
+        let token = Token::new_op("+".to_string()).unwrap();
+        assert_eq!(token.kind, TokenKind::Reserved);
+        assert_eq!(token.val, 0);
+        assert_eq!(token.str, "+");
+        assert_eq!(token.len, 1);
+    }
+
+    #[test]
+    fn new_lvar() {
+        let token = Token::new_lvar("abc".to_string()).unwrap();
+        assert_eq!(token.kind, TokenKind::Ident);
+        assert_eq!(token.val, 0);
+        assert_eq!(token.str, "abc");
+        assert_eq!(token.len, 3);
+    }
+}
+
+#[cfg(test)]
+mod tests_tokenize {
     use crate::tokenize::TokenKind;
 
     use super::tokenize;
@@ -400,8 +510,7 @@ mod tests {
         let result = tokenize("1 + 2 + 3 + 4 + 5 + 6 + 7 + 8 + 9 + 0 % 4".to_string());
         assert!(
             result.is_err(),
-            "エラーが発生すべきですが、発生しませんでした。\n{:?}",
-            result
+            "エラーが発生すべきですが、発生しませんでした。\n{result:?}"
         );
     }
 }
